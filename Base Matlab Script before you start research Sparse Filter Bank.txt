@@ -1,0 +1,450 @@
+
+Basic knowledge to undestand Sparse Filter Bank
+
+<details>
+  <summary>1.Basic transformations</summary>
+
+```
+# 1.1 DFT Transform (Discrete Fourier Transform)
+def dft(xn, N):
+    # Computing Discrete Fourier Transform
+    import numpy as np
+    n = np.arange(0, N)
+    k = np.arange(0, N)
+    WN = np.exp(-1j * 2 * np.pi / N)
+    nk = np.outer(n, k)
+    WNnk = np.power(WN, nk)
+    Xk = np.dot(xn, WNnk)
+    return Xk
+
+# 1.2 IDFT Transform (Inverse Discrete Fourier Transform)
+def idft(Xk, N):
+    # Computing Inverse Discrete Fourier Transform
+    import numpy as np
+    n = np.arange(0, N)
+    k = np.arange(0, N)
+    WN = np.exp(-1j * 2 * np.pi / N)
+    nk = np.outer(n, k)
+    WNnk = np.power(WN, -nk)
+    xn = np.dot(Xk, WNnk) / N
+    return xn
+
+# 1.3 DTFT Transform (Discrete Time Fourier Transform)
+def dtft(Xk, N):
+    # Computing Inverse Discrete Fourier Transform
+    import numpy as np
+    n = np.arange(0, N)
+    k = np.arange(0, N)
+    WN = np.exp(-1j * 2 * np.pi / N)
+    nk = np.outer(n, k)
+    WNnk = np.power(WN, -nk)
+    xn = np.dot(Xk, WNnk) / N
+    return xn
+
+```
+</details>
+
+<details>
+  <summary>2. FFT and Spectral Analysis</summary>
+<details>
+  <summary>  2.1 fft</summary>
+
+```
+
+% 2.1 FFT Algorithm (Fast Fourier Transform)
+function y = myditfft(x)
+% "Digital Signal Processing Tutorial - MATLAB Interpretation and Implementation"
+% Published by Publishing House of Electronics Industry, edited by Chen Huaichen, September 2004
+%
+% y = myditfft(x)
+% ------------------------------------------------------------
+% This program implements the radix-2 decimation in time (DIT) FFT algorithm for the input sequence x.
+% The number of points is taken as the power of 2 greater than or equal to the length of x.
+% x: Input time-domain sequence.
+% y: Discrete Fourier Transform (DFT) of x.
+% 
+m = nextpow2(x); N = 2^m;           % Find the lowest power of 2 for the length of x
+if length(x) < N 
+    x = [x, zeros(1, N - length(x))]; % If the length of x is not a power of 2, zero-pad it to the next power of 2
+end  
+nxd = bin2dec(fliplr(dec2bin([1:N] - 1, m))) + 1;   % Generate a reverse order sequence for 1:2^m
+y = x(nxd);                             % Arrange x in reverse order to initialize y
+for mm = 1:m             % Perform m stages of radix-2 decomposition, from left to right, and perform DFT operation for each decomposition
+    Nmr = 2^mm; u = 1;           % Initialize the twiddle factor u as WN^0 = 1
+    WN = exp(-1i * 2 * pi / Nmr);    % Basic DFT factor for this decomposition WN = exp(-i * 2 * pi / Nmr)
+    for j = 1:Nmr/2         % Perform butterfly operations within the current span
+        for k = j:Nmr:N       % Span for butterfly operations for this stage is Nmr = 2^mm
+            kp = k + Nmr/2;        % Determine the index of the corresponding element for the butterfly operation
+            t = y(kp) * u;        % Product term for butterfly operation
+            y(kp) = y(k) - t;     % Butterfly operation
+            y(k) = y(k) + t;      % Butterfly operation
+        end
+        u = u * WN;               % Update twiddle factor, multiply by the basic DFT factor WN
+    end
+end
+
+```
+</details>
+
+<details>
+  <summary>  2.2 Spectral Analysis of Discrete Signals (Solving Aliasing, Leakage, and Scalloping)</summary>
+  
+```
+% 2.2.1 Windowing and Amplitude Correction
+% pr2_2_9 
+clear all; clc; close all;
+
+fs = 1000;                        % Sampling frequency
+N = 1000;                         % Signal length
+t = (0:N-1) / fs;                 % Time sequence
+f1 = 50; f2 = 65.75;              % Frequencies of the two signals
+x = cos(2*pi*f1*t) + cos(2*pi*f2*t);  % Signal
+wind = hanning(N)';               % Hanning window
+X = fft(x .* wind);               % Apply window and FFT
+Y = abs(X) * 2 / 1000;            % Calculate amplitude
+freq = fs * (0:N/2) / 1000;       % Frequency scale
+[A1, k1] = max(Y(45:65));         % Find amplitude of the first signal
+k1 = k1 + 44;                     % Correct index
+[A2, k2] = max(Y(60:70));         % Find amplitude of the second signal
+k2 = k2 + 59;                     % Correct index
+Theta1 = angle(X(k1));            % Calculate initial phase angle of signal f1
+Theta2 = angle(X(k2));            % Calculate initial phase angle of signal f2
+Y1 = Y * 2;                       % Amplitude correction for windowed amplitude
+% Display frequency and amplitude
+fprintf('f1=%5.2f   A1=%5.4f   A11=%5.4f   Theta1=%5.4f\n', freq(k1), A1, A1*2, Theta1); 
+fprintf('f2=%5.2f   A2=%5.4f   A21=%5.4f   Theta2=%5.4f\n', freq(k2), A2, A2*2, Theta2);
+
+% Plotting
+subplot(211); plot(freq, Y(1:N/2+1), 'k'); xlim([40 75]); 
+line([0 100], [.5 .5], 'color', 'k');
+xlabel('Frequency/Hz'); ylabel('Amplitude'); title('(a) Spectrum - Before Amplitude Correction');
+subplot(212); plot(freq, Y1(1:N/2+1), 'k'); xlim([40 75]); 
+line([0 100], [1 1], 'color', 'k');
+xlabel('Frequency/Hz'); ylabel('Amplitude'); title('(b) Spectrum - After Amplitude Correction');
+set(gcf, 'color', 'w');
+
+% 2.2.2 Zero Padding
+% pr2_2_12 
+clear all; clc; close all;
+
+fs = 200;                         % Sampling frequency
+f1 = 30; f2 = 65.5;               % Frequencies of the two signals
+N = 200;                          % Signal length
+n = 1:N;                          % Sample indices
+t = (n-1) / fs;                   % Time scale
+x = cos(2*pi*f1*t) + cos(2*pi*f2*t);  % Signal
+
+X1 = fft(x);                      % FFT with N points
+freq1 = (0:N/2) * fs / N;         % Frequency scale with N points
+X1_abs = abs(X1(1:N/2+1)) * 2 / N; % Signal amplitude
+
+L = 2 * N;                        % FFT length after zero padding
+X2 = fft(x, L);                   % FFT with length L
+freq2 = (0:L/2) * fs / L;         % Frequency scale with length L
+X2_abs = abs(X2(1:L/2+1)) * 2 / N; % Signal amplitude
+% Plotting
+subplot(211); plot(freq1, X1_abs, 'k'); 
+grid; ylim([0 1.2]);
+xlabel('Frequency/Hz'); ylabel('Amplitude');
+title('(a) FFT Spectrum before Zero Padding')
+subplot(212); plot(freq2, X2_abs, 'k');
+grid; ylim([0 1.2]);
+xlabel('Frequency/Hz'); ylabel('Amplitude');
+title('(b) FFT Spectrum after Zero Padding')
+set(gcf, 'color', 'w');
+
+
+```
+</details>
+</details>
+
+<details>
+  	<summary>3. Digital Filter Design (Non-Recursive FIR, Recursive IIR)</summary>
+	<details>
+ 	 <summary>  "3.1 IIR Filter Design (Using Impulse Invariance, Bilinear Transformation, Notch Filter)"</summary>
+	 
+```
+% 3.1.1 Comparison of Four Filters
+% pr3_2_1
+clear all; close all; clc;
+
+wp=[0.2*pi 0.3*pi];              % Set passband frequencies
+ws=[0.1*pi 0.4*pi];              % Set stopband frequencies
+Rp=1; Rs=20;                     % Set ripple and attenuation coefficients
+% Design Butterworth filter
+[N,Wn]=buttord(wp,ws,Rp,Rs,'s'); % Calculate Butterworth filter order
+fprintf('Butterworth Filter N=%4d\n',N) % Display filter order
+[bb,ab]=butter(N,Wn,'s');        % Calculate Butterworth filter coefficients
+W=0:0.01:2;                      % Set analog frequencies
+[Hb,wb]=freqs(bb,ab,W);          % Calculate Butterworth filter frequency response
+plot(wb/pi,20*log10(abs(Hb)),'b')% Plotting
+hold on
+
+% Design Chebyshev Type I filter
+[N,Wn]=cheb1ord(wp,ws,Rp,Rs,'s');  % Calculate Chebyshev Type I filter order
+fprintf('Chebyshev Type I Filter N=%4d\n',N) % Display filter order
+[bc1,ac1]=cheby1(N,Rp,Wn,'s');     % Calculate Chebyshev Type I filter coefficients
+[Hc1,wc1]=freqs(bc1,ac1,W);        % Calculate Chebyshev Type I filter frequency response
+plot(wc1/pi,20*log10(abs(Hc1)),'k')% Plotting
+
+% Design Chebyshev Type II filter 
+[N,Wn]=cheb2ord(wp,ws,Rp,Rs,'s');  % Calculate Chebyshev Type II filter order
+fprintf('Chebyshev Type II Filter N=%4d\n',N) % Display filter order
+[bc2,ac2]=cheby2(N,Rs,Wn,'s');    % Calculate Chebyshev Type II filter coefficients
+[Hc2,wc2]=freqs(bc2,ac2,W);       % Calculate Chebyshev Type II filter frequency response
+plot(wc2/pi,20*log10(abs(Hc2)),'r')% Plotting
+
+% Design Elliptic filter
+[N,Wn]=ellipord(wp,ws,Rp,Rs,'s');  % Calculate Elliptic filter order
+fprintf('Elliptic Filter N=%4d\n',N) % Display filter order
+[be,ae]=ellip(N,Rp,Rs,Wn,'s');     % Calculate Elliptic filter coefficients
+[He,we]=freqs(be,ae,W);            % Calculate Elliptic filter frequency response
+% Plotting
+plot(we/pi,20*log10(abs(He)),'g')
+axis([0 max(we/pi) -30 2]); %grid;
+legend('Butterworth Filter','Chebyshev Type I Filter','Chebyshev Type II Filter','Elliptic Filter')
+xlabel('Angular Frequency {\omega}/{\pi}'); ylabel('Amplitude/dB')
+set(gcf,'color','w'); 
+
+line([0 max(we/pi)],[-20 -20],'color','k','linestyle','--');
+line([0 max(we/pi)],[-1 -1],'color','k','linestyle','--');
+line([0.2 0.2],[-30 2],'color','k','linestyle','--');
+line([0.3 0.3],[-30 2],'color','k','linestyle','--');
+
+% 3.1.2 Impulse Response Method
+% pr3_7_1 
+clear all; clc; close all;
+
+bs=[1,1];as=[1,5,6];            % System numerator and denominator coefficient vectors
+Fs=10; T=1/Fs;                  % Sampling frequency and sampling interval
+[Ra,pa,ha]=residue(bs, as);	    % Convert analog filter coefficient vector to analog poles and residues
+pd=exp(pa*T);			        % Convert analog poles to digital poles pd
+[bd,ad]=residuez(T*Ra, pd, ha);	% Calculate digital filter coefficients using original residues Ra and digital poles pd
+t=0:0.1:3;                      % Time sequence
+ha=impulse(bs,as,t);            % Calculate impulse response of analog system
+hd=impz(bd,ad,31);              % Calculate impulse response of digital system
+% Calculate digital filter coefficients using impinvar function
+[Bd,Ad]=impinvar(bs,as,Fs);
+fprintf('bd=%5.4f   %5.4f   ad=%5.4f   %5.4f   %5.4f\n\n',bd,ad);
+fprintf('Bd=%5.4f   %5.4f   Ad=%5.4f   %5.4f   %5.4f\n',Bd,Ad);
+% Plotting
+plot(t,ha*T,'r','linewidth',3); hold on; grid on;
+plot(t,hd,'k');
+legend('Impulse Response of Analog Filter','Impulse Response of Digital Filter');
+xlabel('Time/s'); ylabel('Amplitude/dB');
+title('Comparison of Impulse Response of Original Analog Filter and Digital Filter')
+set(gcf,'color','w')            
+
+% 3.1.3 Bilinear Transformation
+% pr3_7_3 
+clear all; close all; clc;
+
+[y,Fs]=wavread('San2.wav');        % Read data
+fc=3400;fb=3700;                   % Set passband and stopband cutoff frequencies
+Rp=3;Rs=60;                        % Set passband ripple and stopband
+
+
+```
+</details>	
+
+<details>
+<summary>  3.2FIR滤波器设计（利用窗函数、频率采样、最优波纹）</summary>
+	 
+```
+% 3.2.1 Using Window Functions
+% pr3_13_1 
+clear all; clc; close all
+
+Fs=100;                          % Sampling frequency
+Fs2=Fs/2;                        % Nyquist frequency
+fp=3; fs=5;                      % Passband and stopband frequencies
+Rp=3; As=50;                     % Passband ripple and stopband attenuation
+wp = fp*pi/Fs2; ws = fs*pi/Fs2;  % Normalized passband and stopband angular frequencies
+deltaw= ws - wp;                 % Calculation of transition band width Δω
+N = ceil(6.6*pi/ deltaw);        % Calculation of filter order N according to Hamming window (according to Eq.(3-13-1))
+N = N + mod(N,2);                % Ensure that the filter coefficient length N+1 is odd
+wind = (hamming(N+1))';          % Hamming window calculation
+Wn=(3+5)/100;                    % Calculation of cutoff frequency
+b=fir1(N,Wn,wind);               % Design FIR Type 1 filter using fir1 function
+[db,mag,phs,gdy,w]=freqz_m(b,1); % Compute filter response
+% Plotting
+subplot 211; plot(w*Fs/(2*pi),db,'k','linewidth',2);
+title('(a) Amplitude Response of Low-pass Filter');
+grid; axis([0 20 -70 10]); 
+xlabel('Frequency/Hz');  ylabel('Amplitude/dB')
+set(gca,'XTickMode','manual','XTick',[0,3,5,20])
+set(gca,'YTickMode','manual','YTick',[-50,0])
+subplot 212; stem(1:N+1,b,'k');
+xlabel('Frequency/Hz');  ylabel('Amplitude/dB')
+title('(b) Impulse Response of Low-pass Filter');
+xlabel('Samples');  ylabel('Amplitude')
+axis([0 167 -0.05 0.1]); 
+set(gca,'XTickMode','manual','XTick',[1,84,167])
+set(gcf,'color','w');
+
+
+```
+</details>
+
+</details>
+
+<details>
+<summary>4. Advanced Topic 1 - Stationary Signal Analysis (Estimation of Power Spectrum)</summary>
+<details>
+<summary> 4.1 Nonparametric Power Spectrum Analysis</summary>
+
+```
+% 4.1 Periodogram Method and Autocorrelation Method
+% pr8_2_2 
+clear all; clc; close all;
+
+Fs=1000;                           % Sampling frequency
+N=1000;                            % Data length
+n=1:N;                             % Index
+t=(n-1)/Fs;                        % Time series
+randn('state',0);                  % Initialize random number generator
+f1=50; f2=120;                     % Frequencies of two sinusoidal components
+x=cos(2*pi*f1*t)+3*cos(2*pi*f2*t)+randn(size(t)); % Signal
+    
+% Periodogram Method
+window=boxcar(N);                  % Window function
+nfft=1000;                         % FFT length
+[Pxx1,f]=periodogram(x,window,nfft,Fs); % Periodogram
+sqrt(sum(Pxx1)*Fs/nfft)             % Calculate average energy of periodogram method
+    
+% Autocorrelation Method
+nfft=1000;                         % FFT length
+cxn=xcorr(x,500,'biased');         % Compute biased autocorrelation function, with delay of only N/2
+cxn=cxn(1:nfft).*bartlett(nfft)';  % Multiply by Bartlett window function
+CXk=fft(cxn,nfft)/Fs;              % Calculate power spectral density
+Pxx2=abs(CXk);                     % Take magnitude
+ind=1:nfft/2;                      % Index half, to take positive frequency part
+freq=(0:nfft-1)*Fs/nfft;           % Frequency scale
+plot_Pxx=Pxx2(ind);                % Take positive frequency part
+plot_Pxx(2:end)=plot_Pxx(2:end)*2; % Single-sided spectrum, multiply amplitude by 2 for 2->nfft/2 part
+sqrt(sum(Pxx2)*Fs/nfft)             % Calculate average energy of autocorrelation method
+
+% Plotting
+plot(f,10*log10(Pxx1),'r');        % Plot logarithmic scale
+hold on; axis([0 500 -50 10]);     
+xlabel('Frequency/Hz');
+ylabel('Power Spectral Density/(dB/Hz)');
+plot(freq(ind),10*log10(plot_Pxx),'k'); % Plot power spectrum
+title('Comparison of Periodogram Method and Autocorrelation Method');
+legend('Periodogram Method','Autocorrelation Method')
+set(gcf,'color','w');
+
+```
+</details>
+
+<details>
+<summary>  4.2Parametric Method Power Spectrum Analysis</summary>
+
+
+
+```markdown
+% 4.2.1 Comparison of Four Parameter Statistics
+% pr8_3_1 
+clear all; clc; close all;
+
+r1=0.98; r2=0.98;                      % Radius of poles
+theta1=0.2*pi; theta2=0.3*pi;          % Phase angle of poles
+% Compute the denominator of the filter transfer function
+A=conv([1 -2*cos(0.2*pi)*0.98 0.98*0.98],[1 -2*cos(0.3*pi)*0.98 0.98*0.98]);
+B=1;                                   % Numerator of the filter transfer function
+P = 4;                                 % Order      
+N = 256;                               % Length of x(n)
+M=1024;                                % Length of FFT transformation
+M2=M/2+1;                              % Length of positive frequencies
+% Theoretical PSD
+S1 = 20*log10(abs(freqz(B, A, M2)))-10*log10(P);
+
+f = (0 : M2-1)/M2;                     % Frequency scale            
+E_yu=zeros(M2,1);                      % Initialization
+E_bg=zeros(M2,1);
+E_cv=zeros(M2,1);
+E_mv=zeros(M2,1);
+L=200;                                 % Number of loops with random numbers
+for k=1 : L                            % Loop L times
+    w = randn(N,1);                    % Generate random numbers
+    x = filter(B, A, w);               % Filter through B/A filter
+    px1=pyulear(x,4,M);                % Calculate power spectrum using Yule-Walker method
+    px2=pburg(x,4,M);                  % Calculate power spectrum using Burg method
+    px3=pcov(x,4,M);                   % Calculate power spectrum using covariance method
+    px4=pmcov(x,4,M);                  % Calculate power spectrum using modified covariance method
+    S_yule = 10*log10(px1);            % Take the logarithm
+    S_burg = 10*log10(px2);
+    S_cov = 10*log10(px3);
+    S_mcov = 10*log10(px4);
+    E_yu=E_yu+S_yule;                  % Accumulate
+    E_bg=E_bg+S_burg;
+    E_cv=E_cv+S_cov;
+    E_mv=E_mv+S_mcov;
+end
+E_yu=E_yu/L;                           % Calculate the average
+E_bg=E_bg/L;
+E_cv=E_cv/L;
+E_mv=E_mv/L;
+```
+
+
+% Plotting
+subplot 221; plot(f, S1, 'k', f, E_yu, 'r');
+legend('True PSD', 'pyulear', 'Location', 'southwest');
+title('Yule-Walker Method');
+ylabel('Magnitude (dB)');
+grid;
+xlim([0 0.5]);
+
+subplot 222; plot(f, S1, 'k', f, E_bg, 'r');
+legend('True PSD', 'pburg', 'Location', 'southwest');
+title('Burg Method');
+ylabel('Magnitude (dB)');
+grid;
+xlim([0 0.5]);
+
+subplot 223; plot(f, S1, 'k', f, E_cv, 'r');
+legend('True PSD', 'pcov', 'Location', 'southwest');
+title('Covariance Method');
+xlabel('Normalized Frequency');
+ylabel('Magnitude (dB)');
+grid;
+xlim([0 0.5]);
+
+subplot 224; plot(f, S1, 'k', f, E_mv, 'r');
+legend('True PSD', 'pmcov', 'Location', 'southwest');
+title('Modified Covariance Method');
+xlabel('Normalized Frequency');
+ylabel('Magnitude (dB)');
+grid;
+xlim([0 0.5]);
+
+set(gcf, 'color', 'w'); % Setting the background color of the figure to white
+
+</details>
+
+</details>
+
+![enter description here](https://github.com/zkjiang/-/blob/master/imgstorage/4.0.jpg)
+![enter description here](https://github.com/zkjiang/-/blob/master/imgstorage/4.1.jpg)
+
+<details>
+<summary>5. Advanced Topic 2 - Stationary Signal Analysis (Correlation Analysis)</summary>
+</details>
+
+<details>
+<summary>6. Advanced Topic 3 - Non-Stationary Signal Analysis (Harmonic Analysis)</summary>
+</details>
+
+<details>
+<summary>7. Advanced Topic 4 - Non-Stationary Signal Analysis (Wavelet Analysis)</summary>
+</details>
+
+<details>
+<summary>8. Advanced Topic 5 - Adaptive Analysis</summary>
+</details>
+
+<details>
+<summary>9. Advanced Topic 6 - Extension and Interpolation of DFT Analysis</summary>
+</details>
+
