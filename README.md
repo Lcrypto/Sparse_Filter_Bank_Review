@@ -1,4 +1,4 @@
-# Sparse Channel Code based Filter Bank Review from Professor Li Bin Team
+# Sparse Channel Code based Filter Bank Review for Faster Than Nyquist Communication and DNN Calculation  
 
 Link to my presentation related to Sparse filter Bank approach https://github.com/Lcrypto/Topology-Signal-Processing/blob/master/MMMA-2019_19_8_19_final.pdf
 Sparse Dictionary Optimization for Faster-than-Nyquist Sampling. The presentation was delivered at The 5th International Conference on Matrix Methods In Mathematics and applications (MMMA 2019) in August 2019, and you can find more information about the conference at https://www.skoltech.ru/en/2019/08/the-5th-international-conference-on-matrix-methods-in-mathematics-and-applications/.
